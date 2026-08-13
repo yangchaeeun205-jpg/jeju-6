@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>오늘의 밭 — 제주 못난이·잉여 농산물 소량 예약 플랫폼</title>
+
+<!-- Leaflet (제주 픽업 지도) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+:root{
+  --green:#2F7A4F;
+  --green-dark:#215739;
+  --green-soft:#E7F2EA;
+  --orange:#F08A24;
+  --orange-soft:#FDF0DF;
+  --bg:#FBF8F1;
+  --card:#FFFFFF;
+  --line:#E5E0D5;
+  --text:#23302A;
+  --muted:#6E7A72;
+  --red:#C6483B;
+  --red-soft:#FBEAE8;
+  --gray-soft:#F1F0EC;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(35,48,42,.05), 0 6px 20px rgba(35,48,42,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,sans-serif;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit}
+a{color:inherit}
+
+/* ---------- 레이아웃 ---------- */
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+header.site{
+  background:var(--card);
+  border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:900;
+}
+header.site .wrap{
+  display:flex;align-items:center;justify-content:space-between;
+  height:62px;gap:12px;
+}
+.brand{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
+.brand .leaf{
+  width:30px;height:30px;border-radius:9px;background:var(--green);
+  display:grid;place-items:center;color:#fff;font-size:16px;
+}
+.brand b{font-size:18px;letter-spacing:-.4px}
+.brand small{display:block;font-size:11px;color:var(--muted);font-weight:500;line-height:1}
+.header-right{display:flex;align-items:center;gap:8px}
+
+main{padding:26px 0 70px}
+.view{display:none}
+.view.active{display:block;animation:fade .22s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- 공통 요소 ---------- */
+.btn{
+  border:1px solid transparent;border-radius:10px;padding:10px 16px;
+  font-size:14px;font-weight:600;cursor:pointer;background:var(--gray-soft);color:var(--text);
+  transition:.15s;white-space:nowrap;
+}
+.btn:hover{filter:brightness(.97)}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--green);color:#fff}
+.btn-accent{background:var(--orange);color:#fff}
+.btn-ghost{background:transparent;border-color:var(--line);color:var(--muted)}
+.btn-block{width:100%;display:block}
+.btn-lg{padding:13px 20px;font-size:15px}
+.btn:disabled{background:var(--gray-soft)!important;color:#A9B2AC!important;cursor:not-allowed;border-color:transparent}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.section-title{font-size:17px;font-weight:800;margin:0 0 4px;letter-spacing:-.3px}
+.section-desc{font-size:13px;color:var(--muted);margin:0 0 14px}
+
+label.field{display:block;margin-bottom:13px}
+label.field > span{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:5px}
+label.field .req{color:var(--orange)}
+input,select,textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+  font-size:14px;font-family:inherit;background:#fff;color:var(--text);
+}
+input:focus,select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
+.hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+
+.badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11.5px;font-weight:700}
+.badge-ok{background:var(--green-soft);color:var(--green-dark)}
+.badge-sold{background:var(--red-soft);color:var(--red)}
+.badge-closed{background:var(--gray-soft);color:var(--muted)}
+.badge-region{background:var(--orange-soft);color:#9A5A0E}
+
+.msg{border-radius:10px;padding:11px 14px;font-size:13.5px;font-weight:600;margin:10px 0}
+.msg-error{background:var(--red-soft);color:var(--red)}
+.msg-ok{background:var(--green-soft);color:var(--green-dark)}
+.msg-info{background:var(--gray-soft);color:var(--muted)}
+.msg[hidden]{display:none}
+
+.empty{
+  text-align:center;padding:44px 20px;color:var(--muted);font-size:14px;
+  background:var(--card);border:1px dashed var(--line);border-radius:var(--radius);
+}
+.empty .big{font-size:26px;display:block;margin-bottom:8px}
+
+/* ---------- 메인 페이지 ---------- */
+.hero{text-align:center;padding:44px 0 30px}
+.hero h1{font-size:40px;margin:0 0 10px;letter-spacing:-1.4px;font-weight:800}
+.hero h1 .dot{color:var(--orange)}
+.hero p.lead{font-size:16px;color:var(--muted);margin:0 auto;max-width:600px}
+.hero .tagrow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.tag{background:var(--card);border:1px solid var(--line);border-radius:99px;padding:5px 13px;font-size:12.5px;color:var(--muted);font-weight:600}
+
+.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px}
+.choice{padding:26px 24px 24px;display:flex;flex-direction:column}
+.choice .ico{font-size:30px;margin-bottom:10px}
+.choice h2{font-size:20px;margin:0 0 6px;letter-spacing:-.5px}
+.choice p{font-size:13.5px;color:var(--muted);margin:0 0 14px;min-height:42px}
+.choice ul{margin:0 0 18px;padding-left:18px;font-size:13px;color:var(--muted)}
+.choice ul li{margin-bottom:3px}
+.choice .spacer{flex:1}
+
+/* ---------- 소비자 페이지 ---------- */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.page-head h2{font-size:26px;margin:0;letter-spacing:-.8px}
+.page-head p{margin:2px 0 0;font-size:13.5px;color:var(--muted)}
+
+.toolbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:14px 16px;margin-bottom:16px}
+.toolbar .fw{min-width:150px}
+.toolbar .fw > span{display:block;font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:5px}
+.toolbar .grow{flex:1}
+
+#map{height:330px;border-radius:var(--radius);border:1px solid var(--line);z-index:1;margin-bottom:8px;background:#DCE7E5}
+.map-note{font-size:11.5px;color:var(--muted);margin:0 0 18px;text-align:right}
+
+.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:16px}
+.p-card{padding:18px;display:flex;flex-direction:column}
+.p-card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+.p-card h3{font-size:17px;margin:0;letter-spacing:-.4px}
+.p-card .seller{font-size:12px;color:var(--muted);margin:2px 0 0}
+.p-card .price{font-size:19px;font-weight:800;color:var(--green-dark);margin:10px 0 2px}
+.p-card .price small{font-size:12.5px;font-weight:600;color:var(--muted)}
+.p-card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:12px 0 0;font-size:13px}
+.p-card dt{color:var(--muted);font-weight:600}
+.p-card dd{margin:0;text-align:right;font-weight:600}
+.p-card .remain-0{color:var(--red)}
+.p-card .spacer{flex:1;min-height:14px}
+
+/* ---------- 예약 화면 ---------- */
+.reserve-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+.detail-list{display:grid;grid-template-columns:auto 1fr;gap:9px 14px;font-size:14px;margin:0}
+.detail-list dt{color:var(--muted);font-weight:600}
+.detail-list dd{margin:0;text-align:right;font-weight:700}
+.total-box{
+  background:var(--green-soft);border-radius:12px;padding:14px 16px;
+  display:flex;justify-content:space-between;align-items:center;margin:6px 0 16px;
+}
+.total-box span{font-size:13.5px;font-weight:700;color:var(--green-dark)}
+.total-box b{font-size:23px;color:var(--green-dark);letter-spacing:-.5px}
+
+.done-box{max-width:520px;margin:30px auto;padding:32px 28px;text-align:center}
+.done-box .ico{font-size:44px}
+.done-box h2{font-size:23px;margin:10px 0 4px}
+.done-box p.sub{color:var(--muted);font-size:13.5px;margin:0 0 20px}
+.done-box .detail-list{text-align:left;margin-bottom:20px}
+
+/* ---------- 판매자 페이지 ---------- */
+.seller-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.form-2col .full{grid-column:1/-1}
+.pad{padding:20px}
+
+.s-item{border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:12px;background:#fff}
+.s-item .row1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.s-item h4{margin:0;font-size:16px;letter-spacing:-.3px}
+.s-item .meta{font-size:12.5px;color:var(--muted);margin:3px 0 0}
+.qty-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:13px 0 10px;text-align:center}
+.qty-row div{background:var(--gray-soft);border-radius:10px;padding:8px 4px}
+.qty-row span{display:block;font-size:11px;color:var(--muted);font-weight:700}
+.qty-row b{font-size:17px;letter-spacing:-.3px}
+.qty-row .hi{background:var(--green-soft)}
+.qty-row .hi b{color:var(--green-dark)}
+.bar{height:7px;background:var(--gray-soft);border-radius:99px;overflow:hidden;margin-bottom:11px}
+.bar > i{display:block;height:100%;background:var(--orange);border-radius:99px;transition:width .3s}
+details.resv{border-top:1px dashed var(--line);padding-top:10px}
+details.resv summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--green-dark);list-style:none}
+details.resv summary::-webkit-details-marker{display:none}
+details.resv summary::before{content:"▸ ";}
+details.resv[open] summary::before{content:"▾ ";}
+table.resv-t{width:100%;border-collapse:collapse;margin-top:9px;font-size:13px}
+table.resv-t th,table.resv-t td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+table.resv-t th{color:var(--muted);font-size:11.5px;font-weight:700}
+table.resv-t td:last-child,table.resv-t th:last-child{text-align:right}
+.no-resv{font-size:13px;color:var(--muted);padding:10px 2px}
+
+/* ---------- 토스트 ---------- */
+#toast{
+  position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);
+  background:var(--text);color:#fff;padding:12px 20px;border-radius:99px;
+  font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:2000;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:90vw;text-align:center;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+footer.site{border-top:1px solid var(--line);padding:20px 0;text-align:center;font-size:12px;color:var(--muted)}
+
+/* ---------- 반응형 ---------- */
+@media (max-width:880px){
+  .choice-grid,.reserve-grid,.seller-grid{grid-template-columns:1fr}
+  .hero h1{font-size:31px}
+  .hero{padding:30px 0 22px}
+}
+@media (max-width:520px){
+  .form-2col{grid-template-columns:1fr}
+  .toolbar .fw{min-width:0;flex:1 1 130px}
+  .page-head h2{font-size:22px}
+}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand" onclick="goMain()">
+      <div class="leaf">🌱</div>
+      <div>
+        <b>오늘의 밭</b>
+        <small>제주 못난이·잉여 농산물 소량 예약</small>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="hdrRole" class="badge badge-region" hidden></span>
+      <button class="btn btn-ghost" id="hdrHome" hidden onclick="goMain()">메인으로</button>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <!-- ============ 1. 메인 페이지 ============ -->
+  <section id="view-main" class="view active">
+    <div class="hero">
+      <h1>오늘의 밭<span class="dot">.</span></h1>
+      <p class="lead">
+        제주에서 모양이 고르지 않아 팔기 어려운 <b>못난이 농산물</b>과 판매 후 조금씩 남은
+        <b>잉여 농산물</b>을, 필요한 만큼만 사려는 청년·1인 가구와 연결합니다.
+      </p>
+      <div class="tagrow">
+        <span class="tag">🥕 소량 예약</span>
+        <span class="tag">📍 제주 픽업 지도</span>
+        <span class="tag">♻️ 자원순환</span>
+        <span class="tag">🔓 회원가입 없음</span>
+      </div>
+    </div>
+
+    <div class="choice-grid">
+      <!-- 소비자 -->
+      <div class="card choice">
+        <div class="ico">🧺</div>
+        <h2>소비자로 이용하기</h2>
+        <p>제주 곳곳에 등록된 소량 농산물을 확인하고, 필요한 만큼만 예약합니다.</p>
+        <ul>
+          <li>등록된 농산물 현황 확인</li>
+          <li>지역·품목별로 골라 보기</li>
+          <li>제주 지도에서 픽업 장소 확인</li>
+          <li>원하는 수량만 예약하기</li>
+        </ul>
+        <div class="spacer"></div>
+        <button class="btn btn-primary btn-lg btn-block" onclick="goConsumer()">
+          농산물 보러 가기 →
+        </button>
+        <p class="hint" style="text-align:center">로그인·닉네임 입력 없이 바로 조회할 수 있습니다.</p>
+      </div>
+
+      <!-- 판매자 -->
+      <div class="card choice">
+        <div class="ico">🚜</div>
+        <h2>판매자로 이용하기</h2>
+        <p>남은 농산물을 소포장 단위로 등록하고, 실제 예약량을 확인합니다.</p>
+        <ul>
+          <li>남은 농산물 상품 등록</li>
+          <li>준비 수량 대비 예약 현황 확인</li>
+          <li>상품별 예약자·예약 수량 확인</li>
+        </ul>
+        <div class="spacer"></div>
+        <label class="field" style="margin-bottom:8px">
+          <span>판매자 닉네임 <b class="req">*</b></span>
+          <input type="text" id="sellerNickInput" placeholder="예: 애월감귤밭" maxlength="20"
+                 onkeydown="if(event.key==='Enter')goSeller()" />
+          <p class="hint">이름·나이·연락처 등 개인정보는 입력하지 마세요. 상품을 구분하는 용도로만 사용합니다.</p>
+        </label>
+        <div class="msg msg-error" id="sellerNickError" hidden></div>
+        <button class="btn btn-accent btn-lg btn-block" onclick="goSeller()">
+          판매자 페이지로 이동 →
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2. 소비자 페이지 ============ -->
+  <section id="view-consumer" class="view">
+    <div class="page-head">
+      <div>
+        <h2>오늘 예약할 수 있는 농산물</h2>
+        <p>지역과 품목을 골라 보고, 지도에서 픽업 장소를 확인하세요.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="reloadConsumer()">🔄 최신 정보 불러오기</button>
+    </div>
+
+    <!-- 필터 영역 -->
+    <div class="card toolbar">
+      <label class="fw">
+        <span>지역</span>
+        <select id="filterRegion" onchange="applyFilter()"></select>
+      </label>
+      <label class="fw">
+        <span>품목</span>
+        <select id="filterCategory" onchange="applyFilter()"></select>
+      </label>
+      <div class="grow"></div>
+      <div style="font-size:12.5px;color:var(--muted);padding-bottom:9px" id="filterCount"></div>
+    </div>
+
+    <!-- 제주 픽업 지도 -->
+    <div id="map"></div>
+    <p class="map-note">📍 마커를 누르면 픽업 장소와 그곳에서 받을 수 있는 상품명을 볼 수 있습니다. (예약은 아래 목록에서)</p>
+
+    <div class="msg msg-error" id="consumerError" hidden></div>
+    <div id="consumerList" class="product-grid"></div>
+    <div id="consumerEmpty"></div>
+  </section>
+
+  <!-- ============ 3. 예약 화면 ============ -->
+  <section id="view-reserve" class="view">
+    <div class="page-head">
+      <div>
+        <h2>예약하기</h2>
+        <p>선택한 상품의 정보를 확인하고 필요한 수량을 예약하세요.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="goConsumer()">← 농산물 목록으로</button>
+    </div>
+
+    <div class="reserve-grid">
+      <div class="card pad">
+        <h3 class="section-title" id="rvName">—</h3>
+        <p class="section-desc" id="rvSeller">—</p>
+        <dl class="detail-list" id="rvDetail"></dl>
+      </div>
+
+      <div class="card pad">
+        <h3 class="section-title">예약 정보 입력</h3>
+        <p class="section-desc">소포장 단위 기준으로 1 이상의 정수를 입력하세요.</p>
+
+        <label class="field">
+          <span>예약 수량 (단위) <b class="req">*</b></span>
+          <input type="number" id="rvQty" min="1" step="1" value="1" oninput="updateEstimate()" />
+        </label>
+
+        <div class="total-box">
+          <span>예상 금액</span>
+          <b id="rvTotal">0원</b>
+        </div>
+
+        <label class="field">
+          <span>예약자 닉네임 <b class="req">*</b></span>
+          <input type="text" id="rvNick" placeholder="예: 제주1인가구" maxlength="20" />
+          <p class="hint">실명·전화번호·주소는 입력받지 않습니다. 예약자를 구분하는 용도로만 사용합니다.</p>
+        </label>
+
+        <div class="msg msg-error" id="rvError" hidden></div>
+
+        <button class="btn btn-primary btn-lg btn-block" id="rvSubmit" onclick="submitReservation()">
+          예약 확정하기
+        </button>
+        <p class="hint" style="text-align:center;margin-top:8px">
+          온라인 결제는 제공하지 않으며, 금액은 픽업 장소에서 직접 지불합니다.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. 예약 완료 화면 ============ -->
+  <section id="view-done" class="view">
+    <div class="card done-box">
+      <div class="ico">✅</div>
+      <h2>예약이 완료되었습니다</h2>
+      <p class="sub">아래 픽업 장소에서 마감시간 전까지 수령해 주세요.</p>
+      <dl class="detail-list" id="doneDetail"></dl>
+      <button class="btn btn-primary btn-lg btn-block" onclick="goConsumer()">농산물 목록으로 돌아가기</button>
+    </div>
+  </section>
+
+  <!-- ============ 5. 판매자 페이지 ============ -->
+  <section id="view-seller" class="view">
+    <div class="page-head">
+      <div>
+        <h2><span id="sellerNameLabel">—</span> 님의 판매자 페이지</h2>
+        <p>남은 농산물을 등록하고, 예약 현황을 확인하세요.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="reloadSeller()">🔄 최신 정보 불러오기</button>
+    </div>
+
+    <div class="seller-grid">
+      <!-- 상품 등록 영역 -->
+      <div class="card pad">
+        <h3 class="section-title">상품 등록</h3>
+        <p class="section-desc">필수 항목(<b class="req">*</b>)을 모두 입력하면 소비자 페이지에 바로 표시됩니다.</p>
+
+        <div class="form-2col">
+          <label class="field full">
+            <span>상품명 <b class="req">*</b></span>
+            <input type="text" id="fName" placeholder="예: 못난이 감자, 소량 남은 당근" maxlength="30" />
+          </label>
+
+          <label class="field">
+            <span>농산물 품목 <b class="req">*</b></span>
+            <select id="fCategory"></select>
+          </label>
+
+          <label class="field">
+            <span>소포장 단위 <b class="req">*</b></span>
+            <input type="text" id="fUnit" placeholder="예: 1kg, 감귤 5개" maxlength="20" />
+          </label>
+
+          <label class="field">
+            <span>1단위당 가격(원) <b class="req">*</b></span>
+            <input type="number" id="fPrice" min="1" step="100" placeholder="2500" />
+          </label>
+
+          <label class="field">
+            <span>준비 수량(단위) <b class="req">*</b></span>
+            <input type="number" id="fQty" min="1" step="1" placeholder="10" />
+          </label>
+
+          <label class="field">
+            <span>지역 <b class="req">*</b></span>
+            <select id="fRegion" onchange="syncPickupOptions()"></select>
+          </label>
+
+          <label class="field">
+            <span>픽업 장소 <b class="req">*</b></span>
+            <select id="fPickup"></select>
+          </label>
+
+          <label class="field full">
+            <span>예약 마감시간 <b class="req">*</b></span>
+            <input type="datetime-local" id="fDeadline" />
+            <p class="hint">현재 시각 이후로 설정해야 합니다. 마감시간이 지나면 자동으로 '예약 마감' 상태가 됩니다.</p>
+          </label>
+        </div>
+
+        <div class="msg msg-error" id="fError" hidden></div>
+        <div class="msg msg-ok" id="fOk" hidden></div>
+
+        <button class="btn btn-accent btn-lg btn-block" onclick="registerProduct()">상품 등록하기</button>
+      </div>
+
+      <!-- 예약 현황 영역 -->
+      <div class="card pad">
+        <h3 class="section-title">내 상품 &amp; 예약 현황</h3>
+        <p class="section-desc">준비 수량에서 누적 예약 수량을 뺀 값이 현재 남은 수량입니다.</p>
+        <div class="msg msg-error" id="sellerError" hidden></div>
+        <div id="sellerList"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    오늘의 밭 · 제주 못난이·잉여 농산물 소량 예약 플랫폼 &nbsp;|&nbsp;
+    데이터 저장소: <span id="storeLabel">브라우저 저장소(localStorage)</span> &nbsp;|&nbsp;
+    <a href="#" onclick="resetDemo();return false;" style="color:var(--muted)">시연 데이터 초기화</a>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* =========================================================================
+   오늘의 밭 — 단일 파일 구현
+   -------------------------------------------------------------------------
+   [데이터 저장 구조]
+   원래 설계: Google Sheets의 '상품시트' / '예약시트' 2개 시트
+   현재 구현: 아래 Store 객체가 동일한 스키마를 브라우저 localStorage에 저장.
+             Store의 4개 함수만 fetch()로 바꾸면 Google Apps Script Web App
+             연동으로 그대로 교체할 수 있도록 설계함. (파일 하단 주석 참고)
+
+   [자동 반복 조회 없음]
+   데이터는 ①페이지 최초 접속 ②상품 등록 완료 ③예약 완료
+   ④'최신 정보 불러오기' 버튼 클릭 시에만 다시 읽는다. setInterval 미사용.
+   ========================================================================= */
+
+/* ---------------- 고정 목록 (판매자 등록 ↔ 소비자 필터 공유) ---------------- */
+const REGIONS = ['제주시','서귀포시','애월읍','한림읍','한경면','조천읍','구좌읍','성산읍','표선면','남원읍','안덕면','대정읍'];
+
+const CATEGORIES = ['감귤·과일','채소','뿌리채소','나물·엽채','곡물·잡곡','기타'];
+
+/* 픽업 장소: 이름 + 지역 + 위도/경도를 미리 정의 (판매자는 선택만 함) */
+const PICKUPS = [
+  { id:'P01', name:'제주민속오일시장 로컬매장',  region:'제주시',   lat:33.4903, lng:126.4820 },
+  { id:'P02', name:'제주대학교 정문 앞 픽업존',  region:'제주시',   lat:33.4560, lng:126.5620 },
+  { id:'P03', name:'서귀포매일올레시장 입구',    region:'서귀포시', lat:33.2496, lng:126.5646 },
+  { id:'P04', name:'서귀포농협 하나로마트',      region:'서귀포시', lat:33.2540, lng:126.5600 },
+  { id:'P05', name:'애월농협 로컬푸드 직매장',   region:'애월읍',   lat:33.4630, lng:126.3100 },
+  { id:'P06', name:'한림수협 로컬매장',          region:'한림읍',   lat:33.4128, lng:126.2660 },
+  { id:'P07', name:'저지리 마을 공동판매장',     region:'한경면',   lat:33.3260, lng:126.2560 },
+  { id:'P08', name:'조천농협 로컬푸드 직매장',   region:'조천읍',   lat:33.5300, lng:126.6350 },
+  { id:'P09', name:'구좌 당근마을 로컬매장',     region:'구좌읍',   lat:33.5230, lng:126.8500 },
+  { id:'P10', name:'성산포 농산물 판매장',       region:'성산읍',   lat:33.4580, lng:126.9350 },
+  { id:'P11', name:'표선농협 하나로마트',        region:'표선면',   lat:33.3260, lng:126.8330 },
+  { id:'P12', name:'남원읍 농협 로컬푸드',       region:'남원읍',   lat:33.2780, lng:126.7160 },
+  { id:'P13', name:'화순 로컬매장',              region:'안덕면',   lat:33.2410, lng:126.3300 },
+  { id:'P14', name:'대정농협 하나로마트',        region:'대정읍',   lat:33.2260, lng:126.2520 }
+];
+/* ※ 위도·경도는 시연을 위한 근사 좌표입니다. 실제 서비스 시 정확한 좌표로 교체하세요. */
+
+/* ======================= 데이터 계층 (Store) ======================= */
+const Store = (() => {
+  const KEY_P = 'todayfarm.products';   // 상품시트
+  const KEY_R = 'todayfarm.reservations'; // 예약시트
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  function read(key){
+    const raw = localStorage.getItem(key);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw);          // 손상 시 예외 → 상위에서 오류 안내
+    if (!Array.isArray(parsed)) throw new Error('데이터 형식 오류');
+    return parsed;
+  }
+  function write(key, arr){ localStorage.setItem(key, JSON.stringify(arr)); }
+
+  return {
+    /** 상품시트 전체 조회 */
+    async fetchProducts(){
+      await wait(120);
+      const v = read(KEY_P);
+      if (v === null){ const seed = seedProducts(); write(KEY_P, seed); return seed; }
+      return v;
+    },
+    /** 예약시트 전체 조회 */
+    async fetchReservations(){
+      await wait(120);
+      const v = read(KEY_R);
+      if (v === null){ const seed = seedReservations(); write(KEY_R, seed); return seed; }
+      return v;
+    },
+    /** 상품시트에 1행 추가 */
+    async addProduct(p){
+      await wait(150);
+      const list = read(KEY_P) || [];
+      list.push(p); write(KEY_P, list);
+      return p;
+    },
+    /** 예약시트에 1행 추가 */
+    async addReservation(r){
+      await wait(150);
+      const list = read(KEY_R) || [];
+      list.push(r); write(KEY_R, list);
+      return r;
+    },
+    clear(){ localStorage.removeItem(KEY_P); localStorage.removeItem(KEY_R); }
+  };
+})();
+
+/* ======================= 애플리케이션 상태 ======================= */
+const state = {
+  sellerNick : '',
+  products   : [],   // 상품시트 캐시
+  reservations: [],  // 예약시트 캐시
+  filters    : { region:'전체', category:'전체' },
+  selectedId : null,
+  lastResult : null
+};
+
+let map = null, markerLayer = null;
+
+/* ======================= 공통 유틸 ======================= */
+const $ = id => document.getElementById(id);
+const won = n => Number(n).toLocaleString('ko-KR') + '원';
+
+function fmtDate(v){
+  const d = new Date(v);
+  if (isNaN(d)) return '-';
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function toInputValue(d){
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._timer); t._timer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function showMsg(id, text){ const el=$(id); el.textContent=text; el.hidden=false; }
+function hideMsg(id){ $(id).hidden = true; }
+
+/* ---------- 잔여 수량 / 상태 계산 (소비자·판매자 페이지 공통) ---------- */
+function reservedQtyOf(productId){
+  return state.reservations
+    .filter(r => r.productId === productId)
+    .reduce((sum, r) => sum + Number(r.qty || 0), 0);
+}
+function remainOf(p){
+  return Math.max(0, Number(p.totalQty) - reservedQtyOf(p.id));   // 준비 수량 - 누적 예약 수량
+}
+function isClosed(p){
+  return new Date(p.deadline).getTime() < Date.now();             // 브라우저 현재 시각 기준
+}
+/** 상태 우선순위: 품절 > 예약 마감 > 예약 가능 (두 상태를 동시에 표시하지 않음) */
+function statusOf(p){
+  if (remainOf(p) <= 0) return '품절';
+  if (isClosed(p))      return '예약 마감';
+  return '예약 가능';
+}
+function statusBadge(st){
+  const cls = st === '예약 가능' ? 'badge-ok' : (st === '품절' ? 'badge-sold' : 'badge-closed');
+  return `<span class="badge ${cls}">${st}</span>`;
+}
+function findProduct(id){ return state.products.find(p => p.id === id); }
+
+/* ======================= 화면 전환 ======================= */
+function showView(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $(id).classList.add('active');
+  window.scrollTo({top:0, behavior:'instant'});
+  const onMain = (id === 'view-main');
+  $('hdrHome').hidden = onMain;
+  $('hdrRole').hidden = onMain;
+}
+
+function goMain(){
+  showView('view-main');
+  hideMsg('sellerNickError');
+}
+
+/* ---------- 소비자 진입 ---------- */
+async function goConsumer(){
+  $('hdrRole').textContent = '🧺 소비자';
+  $('hdrRole').hidden = false;
+  showView('view-consumer');
+  ensureMap();
+  await loadConsumerData();      // 페이지 최초 접속 시 1회 조회
+}
+async function reloadConsumer(){
+  await loadConsumerData();
+  toast('최신 정보를 불러왔습니다.');
+}
+
+/* ---------- 판매자 진입 ---------- */
+async function goSeller(){
+  const nick = $('sellerNickInput').value.trim();
+  if (!nick){
+    showMsg('sellerNickError', '판매자 닉네임을 입력해주세요.');
+    $('sellerNickInput').focus();
+    return;
+  }
+  hideMsg('sellerNickError');
+  state.sellerNick = nick;
+  $('sellerNameLabel').textContent = nick;
+  $('hdrRole').textContent = '🚜 판매자 · ' + nick;
+  $('hdrRole').hidden = false;
+  showView('view-seller');
+  await loadSellerData();
+}
+async function reloadSeller(){
+  await loadSellerData();
+  toast('최신 정보를 불러왔습니다.');
+}
+
+/* ======================= 소비자 페이지 ======================= */
+async function loadConsumerData(){
+  const list = $('consumerList');
+  list.innerHTML = '';
+  $('consumerEmpty').innerHTML = '<div class="empty">불러오는 중…</div>';
+  hideMsg('consumerError');
+
+  try{
+    const [products, reservations] = await Promise.all([
+      Store.fetchProducts(), Store.fetchReservations()
+    ]);
+    state.products = products;
+    state.reservations = reservations;
+    $('consumerEmpty').innerHTML = '';
+    renderConsumer();
+  }catch(e){
+    $('consumerEmpty').innerHTML = '';
+    showMsg('consumerError', '상품 정보를 불러오지 못했습니다.');
+    $('consumerError').innerHTML =
+      '상품 정보를 불러오지 못했습니다. ' +
+      '<button class="btn btn-ghost" style="margin-left:8px" onclick="loadConsumerData()">다시 불러오기</button>';
+  }
+}
+
+function applyFilter(){
+  state.filters.region   = $('filterRegion').value;
+  state.filters.category = $('filterCategory').value;
+  renderConsumer();
+}
+
+function filteredProducts(){
+  const { region, category } = state.filters;
+  return state.products.filter(p =>
+    (region === '전체'   || p.region === region) &&
+    (category === '전체' || p.category === category)
+  );
+}
+
+function renderConsumer(){
+  const list = $('consumerList');
+  const emptyBox = $('consumerEmpty');
+  const shown = filteredProducts();
+
+  $('filterCount').textContent = `전체 ${state.products.length}개 중 ${shown.length}개 표시`;
+
+  /* 지도 마커 갱신 (필터 결과 기준) */
+  renderMarkers(shown);
+
+  if (state.products.length === 0){
+    list.innerHTML = '';
+    emptyBox.innerHTML = '<div class="empty"><span class="big">🌾</span>현재 등록된 농산물이 없습니다.</div>';
+    return;
+  }
+  if (shown.length === 0){
+    list.innerHTML = '';
+    emptyBox.innerHTML = '<div class="empty"><span class="big">🔍</span>선택한 조건에 맞는 상품이 없습니다.</div>';
+    return;
+  }
+  emptyBox.innerHTML = '';
+
+  list.innerHTML = shown.map(p => {
+    const remain = remainOf(p);
+    const st = statusOf(p);
+    const canReserve = (st === '예약 가능');
+    return `
+      <article class="card p-card">
+        <div class="top">
+          <div>
+            <h3>${escapeHtml(p.name)}</h3>
+            <p class="seller">🚜 ${escapeHtml(p.sellerNick)}</p>
+          </div>
+          ${statusBadge(st)}
+        </div>
+        <span class="badge badge-region">${escapeHtml(p.category)}</span>
+        <div class="price">${won(p.price)} <small>/ ${escapeHtml(p.unit)}</small></div>
+        <dl>
+          <dt>지역</dt><dd>${escapeHtml(p.region)}</dd>
+          <dt>남은 수량</dt><dd class="${remain===0?'remain-0':''}">${remain} 단위</dd>
+          <dt>예약 마감</dt><dd>${fmtDate(p.deadline)}</dd>
+        </dl>
+        <div class="spacer"></div>
+        <button class="btn ${canReserve?'btn-primary':''} btn-block"
+                ${canReserve?'':'disabled'}
+                onclick="openReserve('${p.id}')">
+          ${canReserve ? '예약하기' : st}
+        </button>
+      </article>`;
+  }).join('');
+}
+
+/* ---------- Leaflet 제주 지도 ---------- */
+function ensureMap(){
+  if (map){ setTimeout(()=>map.invalidateSize(), 60); return; }
+  map = L.map('map', { scrollWheelZoom:false }).setView([33.38, 126.55], 9.6); // 제주도 전체
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  markerLayer = L.layerGroup().addTo(map);
+  setTimeout(()=>map.invalidateSize(), 120);
+}
+
+function renderMarkers(products){
+  if (!markerLayer) return;
+  markerLayer.clearLayers();
+
+  /* 동일한 픽업 장소는 하나의 마커로 묶는다 */
+  const groups = new Map();
+  products.forEach(p => {
+    if (p.lat == null || p.lng == null) return;
+    const key = `${p.lat},${p.lng}`;
+    if (!groups.has(key)) groups.set(key, { name:p.pickupName, lat:p.lat, lng:p.lng, items:[] });
+    groups.get(key).items.push(p);
+  });
+
+  groups.forEach(g => {
+    const rows = g.items.map(p => {
+      const st = statusOf(p);
+      return `<li>${escapeHtml(p.name)} <span style="color:#6E7A72">(${st})</span></li>`;
+    }).join('');
+    const html =
+      `<div style="min-width:170px">
+         <b style="font-size:13.5px">📍 ${escapeHtml(g.name)}</b>
+         <ul style="margin:6px 0 0;padding-left:17px;font-size:12.5px">${rows}</ul>
+       </div>`;
+    L.marker([g.lat, g.lng]).addTo(markerLayer).bindPopup(html);
+  });
+}
+
+/* ======================= 예약 화면 ======================= */
+function openReserve(id){
+  const p = findProduct(id);
+  if (!p){ toast('상품 정보를 찾을 수 없습니다.'); return; }
+
+  state.selectedId = id;
+  $('rvName').textContent = p.name;
+  $('rvSeller').textContent = '🚜 ' + p.sellerNick + ' · ' + p.category;
+
+  const remain = remainOf(p);
+  $('rvDetail').innerHTML = `
+    <dt>소포장 단위</dt><dd>${escapeHtml(p.unit)}</dd>
+    <dt>1단위당 가격</dt><dd>${won(p.price)}</dd>
+    <dt>현재 남은 수량</dt><dd class="${remain===0?'':''}">${remain} 단위</dd>
+    <dt>예약 마감시간</dt><dd>${fmtDate(p.deadline)}</dd>
+    <dt>지역</dt><dd>${escapeHtml(p.region)}</dd>
+    <dt>픽업 장소</dt><dd>📍 ${escapeHtml(p.pickupName)}</dd>
+    <dt>예약 상태</dt><dd>${statusBadge(statusOf(p))}</dd>
+  `;
+
+  $('rvQty').value = 1;
+  $('rvQty').max = remain;
+  $('rvNick').value = '';
+  hideMsg('rvError');
+  updateEstimate();
+  showView('view-reserve');
+}
+
+function updateEstimate(){
+  const p = findProduct(state.selectedId);
+  if (!p) return;
+  const q = parseInt($('rvQty').value, 10);
+  const total = (Number.isInteger(q) && q > 0) ? q * Number(p.price) : 0;
+  $('rvTotal').textContent = won(total);
+}
+
+async function submitReservation(){
+  const p = findProduct(state.selectedId);
+  if (!p) return;
+
+  const raw  = $('rvQty').value.trim();
+  const nick = $('rvNick').value.trim();
+  hideMsg('rvError');
+
+  /* --- 입력값 검증 --- */
+  if (!nick){ showMsg('rvError','예약자 닉네임을 입력해주세요.'); $('rvNick').focus(); return; }
+  if (!raw ){ showMsg('rvError','예약 수량을 입력해주세요.');     $('rvQty').focus();  return; }
+  if (!/^\d+$/.test(raw)){
+    showMsg('rvError','예약 수량은 1 이상의 정수로 입력해주세요.'); $('rvQty').focus(); return;
+  }
+  const qty = parseInt(raw, 10);
+  if (qty < 1){
+    showMsg('rvError','예약 수량은 1 이상의 정수로 입력해주세요.'); $('rvQty').focus(); return;
+  }
+
+  const btn = $('rvSubmit');
+  btn.disabled = true; btn.textContent = '예약 처리 중…';
+
+  try{
+    /* --- 예약 직전 최신 데이터 재확인 (다른 소비자의 예약 반영) --- */
+    const [products, reservations] = await Promise.all([
+      Store.fetchProducts(), Store.fetchReservations()
+    ]);
+    state.products = products;
+    state.reservations = reservations;
+
+    const fresh = findProduct(state.selectedId);
+    if (!fresh){
+      showMsg('rvError','상품 정보를 찾을 수 없습니다. 목록을 다시 확인해주세요.');
+      return;
+    }
+    if (isClosed(fresh)){
+      showMsg('rvError','예약 마감시간이 지나 예약이 마감되었습니다.');
+      openReserveRefresh(fresh); return;
+    }
+    const remain = remainOf(fresh);
+    if (remain <= 0){
+      showMsg('rvError','죄송합니다. 예약이 진행되는 사이 해당 상품이 품절되었습니다.');
+      openReserveRefresh(fresh); return;
+    }
+    if (qty > remain){
+      showMsg('rvError', `남은 수량보다 많이 예약할 수 없습니다. 현재 예약 가능한 수량은 ${remain}단위입니다.`);
+      openReserveRefresh(fresh); return;
+    }
+
+    /* --- 예약 저장 --- */
+    const record = {
+      id: 'R' + Date.now() + Math.floor(Math.random()*1000),
+      productId: fresh.id,
+      productName: fresh.name,
+      buyerNick: nick,
+      qty: qty,
+      createdAt: new Date().toISOString()
+    };
+    await Store.addReservation(record);
+
+    /* --- 저장 후 잔여 수량 재계산 --- */
+    state.reservations = await Store.fetchReservations();
+    const newRemain = remainOf(fresh);
+
+    state.lastResult = {
+      name: fresh.name, qty, unit: fresh.unit,
+      total: qty * Number(fresh.price),
+      pickup: fresh.pickupName, region: fresh.region,
+      deadline: fresh.deadline, nick, newRemain,
+      soldOut: newRemain === 0
+    };
+    renderDone();
+    showView('view-done');
+  }catch(e){
+    showMsg('rvError','예약 정보를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }finally{
+    btn.disabled = false; btn.textContent = '예약 확정하기';
+  }
+}
+
+/** 실패 시 화면의 남은 수량·상태를 최신값으로 다시 그린다 (에러 메시지는 유지) */
+function openReserveRefresh(p){
+  const keep = $('rvError').innerHTML;
+  const nick = $('rvNick').value;
+  openReserve(p.id);
+  $('rvNick').value = nick;
+  $('rvError').innerHTML = keep; $('rvError').hidden = false;
+}
+
+function renderDone(){
+  const r = state.lastResult;
+  if (!r) return;
+  $('doneDetail').innerHTML = `
+    <dt>상품명</dt><dd>${escapeHtml(r.name)}</dd>
+    <dt>예약자</dt><dd>${escapeHtml(r.nick)}</dd>
+    <dt>예약 수량</dt><dd>${r.qty} 단위 (${escapeHtml(r.unit)} × ${r.qty})</dd>
+    <dt>예상 금액</dt><dd>${won(r.total)}</dd>
+    <dt>픽업 장소</dt><dd>📍 ${escapeHtml(r.pickup)} (${escapeHtml(r.region)})</dd>
+    <dt>수령 마감</dt><dd>${fmtDate(r.deadline)}</dd>
+    <dt>남은 수량</dt><dd>${r.soldOut ? '<span class="badge badge-sold">품절</span>' : r.newRemain + ' 단위'}</dd>
+  `;
+}
+
+/* ======================= 판매자 페이지 ======================= */
+async function loadSellerData(){
+  $('sellerList').innerHTML = '<div class="empty">불러오는 중…</div>';
+  hideMsg('sellerError');
+  try{
+    const [products, reservations] = await Promise.all([
+      Store.fetchProducts(), Store.fetchReservations()
+    ]);
+    state.products = products;
+    state.reservations = reservations;
+    renderSeller();
+  }catch(e){
+    $('sellerList').innerHTML = '';
+    showMsg('sellerError', '상품 정보를 불러오지 못했습니다.');
+    $('sellerError').innerHTML =
+      '상품·예약 정보를 불러오지 못했습니다. ' +
+      '<button class="btn btn-ghost" style="margin-left:8px" onclick="loadSellerData()">다시 불러오기</button>';
+  }
+}
+
+function renderSeller(){
+  const mine = state.products.filter(p => p.sellerNick === state.sellerNick);
+  const box = $('sellerList');
+
+  if (mine.length === 0){
+    box.innerHTML = '<div class="empty"><span class="big">📦</span>아직 등록한 상품이 없습니다.</div>';
+    return;
+  }
+
+  box.innerHTML = mine.map(p => {
+    const reserved = reservedQtyOf(p.id);
+    const remain   = remainOf(p);
+    const st       = statusOf(p);
+    const pct      = Math.min(100, Math.round(reserved / Number(p.totalQty) * 100));
+    const rows     = state.reservations.filter(r => r.productId === p.id);
+
+    const resvHtml = rows.length === 0
+      ? '<p class="no-resv">아직 예약이 없습니다.</p>'
+      : `<table class="resv-t">
+           <tr><th>예약자 닉네임</th><th>예약 시각</th><th>수량</th></tr>
+           ${rows.map(r => `<tr>
+              <td>${escapeHtml(r.buyerNick)}</td>
+              <td style="color:var(--muted)">${fmtDate(r.createdAt)}</td>
+              <td><b>${r.qty}</b> 단위</td></tr>`).join('')}
+         </table>`;
+
+    return `
+      <div class="s-item">
+        <div class="row1">
+          <div>
+            <h4>${escapeHtml(p.name)}</h4>
+            <p class="meta">${escapeHtml(p.category)} · ${escapeHtml(p.unit)} · ${won(p.price)} · 📍${escapeHtml(p.pickupName)}</p>
+          </div>
+          ${statusBadge(st)}
+        </div>
+        <div class="qty-row">
+          <div><span>준비 수량</span><b>${p.totalQty}</b></div>
+          <div><span>누적 예약</span><b>${reserved}</b></div>
+          <div class="hi"><span>남은 수량</span><b>${remain}</b></div>
+        </div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <p class="meta" style="margin-bottom:10px">예약 마감 ${fmtDate(p.deadline)}</p>
+        <details class="resv">
+          <summary>예약 내역 ${rows.length}건 보기</summary>
+          ${resvHtml}
+        </details>
+      </div>`;
+  }).join('');
+}
+
+/* ---------- 상품 등록 ---------- */
+function syncPickupOptions(){
+  const region = $('fRegion').value;
+  const sel = $('fPickup');
+  const list = PICKUPS.filter(x => x.region === region);
+  sel.innerHTML = list.length
+    ? list.map(x => `<option value="${x.id}">${x.name}</option>`).join('')
+    : '<option value="">해당 지역에 등록된 픽업 장소가 없습니다</option>';
+}
+
+async function registerProduct(){
+  hideMsg('fError'); hideMsg('fOk');
+
+  const name     = $('fName').value.trim();
+  const category = $('fCategory').value;
+  const unit     = $('fUnit').value.trim();
+  const priceRaw = $('fPrice').value.trim();
+  const qtyRaw   = $('fQty').value.trim();
+  const region   = $('fRegion').value;
+  const pickupId = $('fPickup').value;
+  const deadline = $('fDeadline').value;
+
+  /* 필수 항목 확인 */
+  if (!name)     return showMsg('fError','상품명을 입력해주세요.');
+  if (!unit)     return showMsg('fError','소포장 단위를 입력해주세요. (예: 1kg, 감귤 5개)');
+  if (!priceRaw) return showMsg('fError','가격을 입력해주세요.');
+  if (!qtyRaw)   return showMsg('fError','준비 수량을 입력해주세요.');
+  if (!pickupId) return showMsg('fError','픽업 장소를 선택해주세요.');
+  if (!deadline) return showMsg('fError','예약 마감시간을 입력해주세요.');
+
+  /* 값 유효성 확인 */
+  const price = Number(priceRaw);
+  if (!Number.isFinite(price) || price <= 0)
+    return showMsg('fError','가격은 0보다 큰 숫자로 입력해주세요.');
+
+  if (!/^\d+$/.test(qtyRaw) || parseInt(qtyRaw,10) < 1)
+    return showMsg('fError','준비 수량은 1 이상의 정수로 입력해주세요.');
+  const totalQty = parseInt(qtyRaw, 10);
+
+  const dl = new Date(deadline);
+  if (isNaN(dl)) return showMsg('fError','예약 마감시간을 올바르게 입력해주세요.');
+  if (dl.getTime() <= Date.now())
+    return showMsg('fError','예약 마감시간은 현재 시간 이후로 설정해주세요.');
+
+  const place = PICKUPS.find(x => x.id === pickupId);
+
+  const product = {
+    id: 'S' + Date.now() + Math.floor(Math.random()*1000),  // 상품 고유 식별자
+    sellerNick: state.sellerNick,                            // 메인에서 입력한 닉네임 자동 연결
+    name, category, unit,
+    price, totalQty,
+    region,
+    pickupId: place.id,
+    pickupName: place.name,
+    lat: place.lat, lng: place.lng,                          // 지도 표시용 위치 정보
+    deadline,
+    createdAt: new Date().toISOString()
+  };
+
+  try{
+    await Store.addProduct(product);
+    showMsg('fOk','상품이 등록되었습니다.');
+    toast('상품이 등록되었습니다.');
+    ['fName','fUnit','fPrice','fQty'].forEach(id => $(id).value = '');
+    await loadSellerData();          // 등록 완료 시 목록 다시 불러오기
+    setTimeout(()=>hideMsg('fOk'), 3500);
+  }catch(e){
+    showMsg('fError','상품을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
+}
+
+/* ======================= 시연용 초기 데이터 ======================= */
+function seedProducts(){
+  const now = Date.now();
+  const D = h => toInputValue(new Date(now + h*3600*1000));
+  const mk = (id, sellerNick, name, category, unit, price, totalQty, pickupId, hours) => {
+    const pk = PICKUPS.find(x => x.id === pickupId);
+    return { id, sellerNick, name, category, unit, price, totalQty,
+             region: pk.region, pickupId: pk.id, pickupName: pk.name,
+             lat: pk.lat, lng: pk.lng, deadline: D(hours),
+             createdAt: new Date(now).toISOString() };
+  };
+  return [
+    mk('S-DEMO-1','애월감귤밭','모양이 고르지 않은 감귤','감귤·과일','1kg',3000,20,'P05',48),
+    mk('S-DEMO-2','구좌당근농장','못난이 당근','뿌리채소','1kg',2500,12,'P09',30),
+    mk('S-DEMO-3','한림텃밭','소량 남은 애호박','채소','애호박 2개',2000,8,'P06',20),
+    mk('S-DEMO-4','서귀포농원','자투리 한라봉','감귤·과일','1.5kg',6000,6,'P03',72),
+    mk('S-DEMO-5','성산들녘','흠집난 브로콜리','채소','2송이',2800,10,'P10',54),
+    mk('S-DEMO-6','애월감귤밭','못난이 감자','뿌리채소','2kg',3500,5,'P05',36)
+  ];
+}
+function seedReservations(){
+  const t = Date.now();
+  const iso = m => new Date(t - m*60000).toISOString();
+  return [
+    { id:'R-DEMO-1', productId:'S-DEMO-1', productName:'모양이 고르지 않은 감귤', buyerNick:'제주1인가구', qty:2, createdAt: iso(180) },
+    { id:'R-DEMO-2', productId:'S-DEMO-1', productName:'모양이 고르지 않은 감귤', buyerNick:'감귤러버',     qty:3, createdAt: iso(90)  },
+    { id:'R-DEMO-3', productId:'S-DEMO-3', productName:'소량 남은 애호박',       buyerNick:'자취생A',      qty:2, createdAt: iso(60)  },
+    { id:'R-DEMO-4', productId:'S-DEMO-6', productName:'못난이 감자',            buyerNick:'감자좋아',     qty:5, createdAt: iso(25)  }
+  ];
+}
+
+function resetDemo(){
+  if (!confirm('저장된 상품·예약 데이터를 모두 지우고 시연용 초기 데이터로 되돌립니다. 계속할까요?')) return;
+  Store.clear();
+  location.reload();
+}
+
+/* ======================= 초기화 ======================= */
+function initSelects(){
+  $('filterRegion').innerHTML   = '<option>전체</option>' + REGIONS.map(r=>`<option>${r}</option>`).join('');
+  $('filterCategory').innerHTML = '<option>전체</option>' + CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+  $('fRegion').innerHTML        = REGIONS.map(r=>`<option>${r}</option>`).join('');
+  $('fCategory').innerHTML      = CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+  syncPickupOptions();
+
+  const d = new Date(Date.now() + 24*3600*1000);
+  d.setMinutes(0,0,0);
+  $('fDeadline').value = toInputValue(d);
+}
+initSelects();
+
+/* =========================================================================
+   [ 나중에 Google Sheets로 교체하는 방법 ]
+
+   1) 스프레드시트에 시트 2개를 만든다.
+      · 상품시트  : id | sellerNick | name | category | unit | price | totalQty |
+                   region | pickupId | pickupName | lat | lng | deadline | createdAt
+      · 예약시트  : id | productId | productName | buyerNick | qty | createdAt
+
+   2) 확장 프로그램 > Apps Script 에 doGet / doPost 를 작성하고 웹 앱으로 배포한다.
+      (액세스 권한: '모든 사용자')
+
+   3) 위 Store 객체의 4개 함수를 아래처럼 바꾸면 나머지 코드는 수정이 필요 없다.
+
+      const API = 'https://script.google.com/macros/s/○○○/exec';
+
+      async fetchProducts(){
+        const res = await fetch(API + '?sheet=products');
+        if (!res.ok) throw new Error('load fail');
+        return res.json();
+      },
+      async addReservation(r){
+        await fetch(API, { method:'POST', body: JSON.stringify({sheet:'reservations', row:r}) });
+        return r;
+      }
+      ... (fetchReservations / addProduct 도 동일한 방식)
+   ========================================================================= */
+</script>
+</body>
+</html>
